@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   description: "Advanced Learning Management System Admin Dashboard",
 };
 
+import { DataProvider } from "@/contexts/DataContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -45,7 +47,9 @@ export default function RootLayout({
             },
           }}
         />
-        {children}
+        <DataProvider>
+          {children}
+        </DataProvider>
       </body>
     </html>
   );

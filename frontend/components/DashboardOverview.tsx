@@ -3,7 +3,19 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardCard } from '@/components/DashboardCard';
-import { Users, BookOpen, FileText, CreditCard, Clock, ArrowRight, X, TrendingUp, UserCheck, Calendar, CheckSquare } from 'lucide-react';
+import { 
+  Users, 
+  BookOpen, 
+  FileText, 
+  CreditCard, 
+  Clock, 
+  ArrowRight, 
+  X, 
+  TrendingUp, 
+  UserCheck, 
+  Calendar, 
+  CheckSquare
+} from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 
 const recentActivity = [
@@ -14,7 +26,7 @@ const recentActivity = [
 
 export function DashboardOverview() {
   const router = useRouter();
-  const { students, batches, assignments, payments } = useData();
+  const { students, batches, assignments, payments, setShowAssignmentModal } = useData();
   const [showReports, setShowReports] = useState(false);
 
   // Compute total paid revenue dynamically
@@ -22,8 +34,7 @@ export function DashboardOverview() {
   const unpaidPayments = payments.filter(p => p.status === "Unpaid");
   
   const totalRevenue = paidPayments.reduce((sum, p) => {
-    const amountValue = parseFloat(p.amount.replace(/[^0-9.-]+/g, ""));
-    return sum + (isNaN(amountValue) ? 0 : amountValue);
+    return sum + (p.amount || 0);
   }, 0);
 
   const activeStudents = students.filter(s => s.status === 'Active').length;
@@ -257,7 +268,7 @@ export function DashboardOverview() {
                 <ArrowRight size={18} className="text-gray-400 group-hover:text-blue-600 transition-colors" />
               </button>
 
-              <button onClick={() => router.push('/admin/dashboard/assignments?action=add')} className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-green-50 border border-gray-100 group transition-all duration-200">
+              <button onClick={() => setShowAssignmentModal(true)} className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-green-50 border border-gray-100 group transition-all duration-200">
                 <div className="flex items-center gap-3">
                   <div className="bg-white p-2 rounded-lg shadow-sm text-green-600 group-hover:scale-110 transition-transform">
                     <FileText size={18} />

@@ -4,8 +4,6 @@ import { DataProvider } from '@/contexts/DataContext';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <DataProvider>
-      <AdminLayout>{children}</AdminLayout>
-    </DataProvider>
+    <AdminLayout>{children}</AdminLayout>
   );
 }

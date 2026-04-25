@@ -116,8 +116,12 @@ export default function BatchesPage() {
     toast.success("Batch deleted successfully");
   };
 
+  const inputClass = "h-11 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition w-full text-gray-800 placeholder-gray-400";
+  const textareaClass = "rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition w-full text-gray-800 placeholder-gray-400 resize-none min-h-[100px]";
+  const labelClass = "block text-sm font-medium text-gray-600 mb-1.5 flex items-center gap-2";
+
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="animate-in fade-in duration-500 text-gray-900 font-sans">
       <div className="mb-2">
         <p className="text-base text-gray-500 font-medium">Manage course batches and schedules.</p>
       </div>
@@ -171,7 +175,7 @@ export default function BatchesPage() {
                 <X size={24} />
               </button>
             </div>
-            <div className="p-8 grid grid-cols-2 gap-8 text-base">
+            <div className="p-8 grid grid-cols-2 gap-8 text-base text-gray-900">
               <div className="space-y-1">
                 <p className="text-gray-500 font-medium">Instructor</p>
                 <div className="flex items-center gap-2 text-gray-900 font-semibold p-3 bg-gray-50 rounded-xl border border-gray-100">
@@ -208,7 +212,7 @@ export default function BatchesPage() {
                 </div>
               </div>
             </div>
-            <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex justify-end">
+            <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex justify-end font-sans">
               <button onClick={() => setViewItem(null)} className="px-8 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 active:scale-95 transition-all shadow-sm">
                 Close
               </button>
@@ -217,120 +221,118 @@ export default function BatchesPage() {
         </div>
       )}
 
-      {/* Create Batch Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={(e) => e.target === e.currentTarget && setShowCreateModal(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+      {/* Create/Edit Batch Modal Container */}
+      {(showCreateModal || editItem) && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowCreateModal(false);
+            setEditItem(null);
+          }
+        }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl animate-in zoom-in-95 duration-300 overflow-hidden font-sans">
             <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-blue-600 rounded-xl text-white shadow-md shadow-blue-200">
-                  <Plus size={24} />
+                  {showCreateModal ? <Plus size={24} /> : <Layout size={24} />}
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Create New Batch</h2>
-                  <p className="text-sm text-gray-500">Plan a new course schedule</p>
+                  <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">{showCreateModal ? "Create New Batch" : "Edit Batch Details"}</h2>
+                  <p className="text-sm text-gray-500">{showCreateModal ? "Plan a new course schedule" : "Modify existing batch parameters"}</p>
                 </div>
               </div>
               <button 
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => { setShowCreateModal(false); setEditItem(null); }}
                 className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-200/50 rounded-full transition-all active:scale-90"
               >
                 <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateBatch} className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-base font-semibold text-gray-700">
-                    <Layout size={18} className="text-blue-500" />
+            <form onSubmit={showCreateModal ? handleCreateBatch : handleSaveEdit} className="p-8 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className={labelClass}>
+                    <Layout size={16} className="text-blue-500" />
                     Batch Name *
                   </label>
-                  <input type="text" autoFocus placeholder="e.g. Batch D - Python" value={newBatch.name} onChange={e => setNewBatch({...newBatch, name: e.target.value})} className="w-full px-4 py-3 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all" required />
+                  <input 
+                    type="text" 
+                    autoFocus={showCreateModal}
+                    placeholder="e.g. Batch D - Python" 
+                    value={showCreateModal ? newBatch.name : editItem?.name} 
+                    onChange={e => showCreateModal ? setNewBatch({...newBatch, name: e.target.value}) : setEditItem({...editItem!, name: e.target.value})} 
+                    className={inputClass} 
+                    required 
+                  />
                 </div>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-base font-semibold text-gray-700">
-                    <User size={18} className="text-blue-500" />
+                <div className="space-y-1">
+                  <label className={labelClass}>
+                    <User size={16} className="text-blue-500" />
                     Instructor Name
                   </label>
-                  <input type="text" placeholder="e.g. Dr. Sarah Wilson" value={newBatch.instructor} onChange={e => setNewBatch({...newBatch, instructor: e.target.value})} className="w-full px-4 py-3 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Dr. Sarah Wilson" 
+                    value={showCreateModal ? newBatch.instructor : editItem?.instructor} 
+                    onChange={e => showCreateModal ? setNewBatch({...newBatch, instructor: e.target.value}) : setEditItem({...editItem!, instructor: e.target.value})} 
+                    className={inputClass} 
+                  />
                 </div>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-base font-semibold text-gray-700">
-                    <Calendar size={18} className="text-blue-500" />
+                <div className="space-y-1">
+                  <label className={labelClass}>
+                    <Calendar size={16} className="text-blue-500" />
                     Start Date *
                   </label>
-                  <input type="date" value={newBatch.startDate} onChange={e => setNewBatch({...newBatch, startDate: e.target.value})} className="w-full px-4 py-3 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all" required />
+                  <input 
+                    type="date" 
+                    value={showCreateModal ? newBatch.startDate : editItem?.startDate} 
+                    onChange={e => showCreateModal ? setNewBatch({...newBatch, startDate: e.target.value}) : setEditItem({...editItem!, startDate: e.target.value})} 
+                    className={inputClass} 
+                    required 
+                  />
                 </div>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-base font-semibold text-gray-700">
-                    <Calendar size={18} className="text-blue-500" />
+                <div className="space-y-1">
+                  <label className={labelClass}>
+                    <Calendar size={16} className="text-blue-500" />
                     End Date
                   </label>
-                  <input type="date" value={newBatch.endDate} onChange={e => setNewBatch({...newBatch, endDate: e.target.value})} className="w-full px-4 py-3 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                  <input 
+                    type="date" 
+                    value={showCreateModal ? newBatch.endDate : editItem?.endDate} 
+                    onChange={e => showCreateModal ? setNewBatch({...newBatch, endDate: e.target.value}) : setEditItem({...editItem!, endDate: e.target.value})} 
+                    className={inputClass} 
+                  />
                 </div>
-                <div className="space-y-2 col-span-2">
-                  <label className="flex items-center gap-2 text-base font-semibold text-gray-700">
-                    <Clock size={18} className="text-blue-500" />
+                <div className="space-y-1 col-span-1 md:col-span-2">
+                  <label className={labelClass}>
+                    <Clock size={16} className="text-blue-500" />
                     Schedule
                   </label>
-                  <input type="text" placeholder="e.g. Mon/Wed 6PM" value={newBatch.schedule} onChange={e => setNewBatch({...newBatch, schedule: e.target.value})} className="w-full px-4 py-3 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Mon/Wed 6PM" 
+                    value={showCreateModal ? newBatch.schedule : editItem?.schedule} 
+                    onChange={e => showCreateModal ? setNewBatch({...newBatch, schedule: e.target.value}) : setEditItem({...editItem!, schedule: e.target.value})} 
+                    className={inputClass} 
+                  />
+                </div>
+                <div className="space-y-1 col-span-1 md:col-span-2">
+                  <label className={labelClass}>
+                    <FileText size={16} className="text-blue-500" />
+                    Course Description
+                  </label>
+                  <textarea 
+                    placeholder="What will students learn in this batch?" 
+                    value={showCreateModal ? newBatch.description || '' : editItem?.description || ''} 
+                    onChange={e => showCreateModal ? setNewBatch({...newBatch, description: e.target.value}) : setEditItem({...editItem!, description: e.target.value})} 
+                    className={textareaClass}
+                  />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-base font-semibold text-gray-700">
-                  <FileText size={18} className="text-blue-500" />
-                  Course Description
-                </label>
-                <textarea rows={3} placeholder="What will students learn in this batch?" value={newBatch.description || ''} onChange={e => setNewBatch({...newBatch, description: e.target.value})} className="w-full px-4 py-3 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"></textarea>
-              </div>
-
-              <div className="mt-8 flex justify-end gap-4 pt-6 border-t border-gray-100">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="px-6 py-3 text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-95 text-base font-bold shadow-sm">Discard</button>
-                <button type="submit" className="px-8 py-3 text-white bg-blue-600 rounded-xl hover:bg-blue-700 active:scale-95 text-base font-bold shadow-lg shadow-blue-200">Create Batch</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {editItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={(e) => e.target === e.currentTarget && setEditItem(null)}>
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">Edit Batch</h3>
-              <button onClick={() => setEditItem(null)} className="text-gray-400 hover:text-gray-900 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-1">Batch Name</label>
-                <input type="text" value={editItem.name} onChange={e => setEditItem({...editItem, name: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none" required />
-              </div>
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-1">Instructor</label>
-                <input type="text" value={editItem.instructor} onChange={e => setEditItem({...editItem, instructor: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-base font-medium text-gray-700 mb-1">Start Date</label>
-                  <input type="date" value={editItem.startDate} onChange={e => setEditItem({...editItem, startDate: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none" required />
-                </div>
-                <div>
-                  <label className="block text-base font-medium text-gray-700 mb-1">End Date</label>
-                  <input type="date" value={editItem.endDate} onChange={e => setEditItem({...editItem, endDate: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-1">Description</label>
-                <textarea rows={3} value={editItem.description} onChange={e => setEditItem({...editItem, description: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 bg-white text-gray-900 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
-              </div>
-              <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => setEditItem(null)} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 active:scale-95 text-base font-medium">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 text-white bg-blue-600 rounded-xl hover:bg-blue-700 active:scale-95 text-base font-medium">Save Changes</button>
+              <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-gray-100">
+                <button type="button" onClick={() => { setShowCreateModal(false); setEditItem(null); }} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:scale-95 text-sm font-medium transition-all">Discard</button>
+                <button type="submit" className="px-5 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-95 text-sm font-medium shadow transition-all">{showCreateModal ? "Create Batch" : "Save Changes"}</button>
               </div>
             </form>
           </div>
@@ -340,14 +342,14 @@ export default function BatchesPage() {
       {/* Delete Confirmation Modal */}
       {deleteItem && (
         <div className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={(e) => e.target === e.currentTarget && setDeleteItem(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg animate-in zoom-in-95 duration-200 font-sans text-gray-900">
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Confirm Delete</h3>
-            <p className="text-gray-500 text-base mb-6">Are you sure you want to delete this item? This action cannot be undone.</p>
+            <p className="text-gray-500 text-sm font-medium mb-6">Are you sure you want to delete this batch? This action cannot be undone and will affect student enrollment.</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDeleteItem(null)} className="px-5 py-2.5 text-base font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all hover:scale-105 active:scale-95">
+              <button onClick={() => setDeleteItem(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-95">
                 Cancel
               </button>
-              <button onClick={confirmDelete} className="px-5 py-2.5 text-base font-medium text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all hover:scale-105 active:scale-95">
+              <button onClick={confirmDelete} className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg shadow-red-100 transition-all active:scale-95">
                 Delete
               </button>
             </div>

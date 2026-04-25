@@ -3,9 +3,12 @@
 import React, { useState } from 'react';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
+import { useData } from '@/contexts/DataContext';
+import { CreateAssignmentModal } from './CreateAssignmentModal';
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const { showAssignmentModal, setShowAssignmentModal } = useData();
 
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
@@ -16,6 +19,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <main className="lg:ml-72 mt-16 p-4 sm:p-6 min-h-[calc(100vh-4rem)] transition-all duration-200">
         {children}
       </main>
+
+      {showAssignmentModal && (
+        <CreateAssignmentModal onClose={() => setShowAssignmentModal(false)} />
+      )}
     </div>
   );
 }

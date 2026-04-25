@@ -8,12 +8,12 @@ export interface Student {
   id: number;
   name: string;
   email: string;
-  phone: string;
   batch: string;
+  phone: string;
+  totalPaid: number;
   status: string;
-  paymentStatus: string;
-  totalPaid: string;
-  assignments: Array<{ title: string; status: string }>;
+  courseDuration: number; // in years
+  joinedYear: number;
 }
 
 export interface Batch {
@@ -34,23 +34,41 @@ export interface Assignment {
   description: string;
   dueDate: string;
   status: string;
+  fileUrl?: string;
+  fileName?: string;
+  statusMap?: Record<string, string>; // email -> status
 }
 
 export interface Announcement {
   id: number;
-  text: string;
+  title: string;
+  content: string;
   batch: string;
   date: string;
+}
+
+export interface User {
+  id: number;
+  email: string;
+  password: string;
+  role: 'admin' | 'user';
+}
+
+export interface ResetToken {
+  token: string;
+  email: string;
+  expiry: number;
 }
 
 export interface Payment {
   id: number;
   studentName: string;
   email: string;
-  batch: string;
-  amount: string;
+  amount: number;
+  year: number;
   status: string;
-  paymentDate: string;
+  paidDate: string;
+  batch: string;
 }
 
 interface DataContextType {
@@ -64,15 +82,19 @@ interface DataContextType {
   setAnnouncements: React.Dispatch<React.SetStateAction<Announcement[]>>;
   payments: Payment[];
   setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
+  users: User[];
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  resetTokens: ResetToken[];
+  setResetTokens: React.Dispatch<React.SetStateAction<ResetToken[]>>;
+  showAssignmentModal: boolean;
+  setShowAssignmentModal: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 // --- Initial Mock Data ---
 
 const initialStudentsData: Student[] = [
-  { id: 1, name: 'John Doe', email: 'john@example.com', phone: '+1 234 567 8901', batch: 'Batch A - React', status: 'Active', paymentStatus: 'Paid', totalPaid: '$500.00', assignments: [{ title: 'React Hooks Project', status: 'Completed' }, { title: 'Next.js App Router', status: 'Pending' }] },
-  { id: 2, name: 'Jane Smith', email: 'jane@example.com', phone: '+1 987 654 3210', batch: 'Batch B - Node.js', status: 'Active', paymentStatus: 'Unpaid', totalPaid: '$0.00', assignments: [{ title: 'Express API Design', status: 'Pending' }] },
-  { id: 3, name: 'Mike Johnson', email: 'mike@example.com', phone: '+1 555 123 4567', batch: 'Batch A - React', status: 'Inactive', paymentStatus: 'Paid', totalPaid: '$500.00', assignments: [{ title: 'React Hooks Project', status: 'Completed' }] },
-  { id: 4, name: 'Emily Brown', email: 'emily@example.com', phone: '+1 444 987 6543', batch: 'Batch C - UI/UX', status: 'Active', paymentStatus: 'Unpaid', totalPaid: '$250.00', assignments: [{ title: 'Figma Auto Layout', status: 'Completed' }] },
+  { id: 1, name: 'John Doe', email: 'user@example.com', batch: 'Batch A - React', phone: '+1234567890', totalPaid: 20000, status: 'Active', courseDuration: 4, joinedYear: 2024 },
+  { id: 2, name: 'Jane Smith', email: 'jane@example.com', batch: 'Batch B - Node.js', phone: '+0987654321', totalPaid: 10000, status: 'Active', courseDuration: 3, joinedYear: 2025 },
 ];
 
 const initialBatchesData: Batch[] = [
@@ -82,22 +104,26 @@ const initialBatchesData: Batch[] = [
 ];
 
 const initialAssignmentsData: Assignment[] = [
-  { id: 1, title: 'React Hooks Project', batch: 'Batch A - React', description: 'Implement a custom hook library supporting local storage.', dueDate: '2023-11-10', status: 'Active' },
-  { id: 2, title: 'Express API Design', batch: 'Batch B - Node.js', description: 'Design RESTful routes for a mock e-commerce backend.', dueDate: '2023-11-12', status: 'Grading' },
-  { id: 3, title: 'Figma Auto Layout', batch: 'Batch C - UI/UX', description: 'Create a fully responsive mobile wireframe.', dueDate: '2023-11-15', status: 'Active' },
-  { id: 4, title: 'Next.js App Router', batch: 'Batch A - React', description: 'Migrate a pages/ project to the app/ directory using Layouts.', dueDate: '2023-11-20', status: 'Upcoming' },
+  { id: 1, title: 'React Hooks Project', batch: 'Batch A - React', description: 'Implement a custom hook library supporting local storage.', dueDate: '2023-11-10', status: 'Active', fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', fileName: 'react_hooks.pdf', statusMap: { 'user@example.com': 'Completed' } },
+  { id: 2, title: 'Express API Design', batch: 'Batch B - Node.js', description: 'Design RESTful routes for a mock e-commerce backend.', dueDate: '2023-11-12', status: 'Grading', fileUrl: '', fileName: '', statusMap: {} },
+  { id: 3, title: 'Figma Auto Layout', batch: 'Batch C - UI/UX', description: 'Create a fully responsive mobile wireframe.', dueDate: '2023-11-15', status: 'Active', fileUrl: '', fileName: '', statusMap: {} },
+  { id: 4, title: 'Next.js App Router', batch: 'Batch A - React', description: 'Migrate a pages/ project to the app/ directory using Layouts.', dueDate: '2023-11-20', status: 'Upcoming', fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', fileName: 'nextjs_router.pdf', statusMap: { 'user@example.com': 'Pending' } },
 ];
 
 const initialAnnouncementsData: Announcement[] = [
-  { id: 1, text: 'Please ensure all assignments are submitted before the deadline next week.', batch: 'All Batches', date: 'Oct 24, 2023' },
-  { id: 2, text: 'Batch B Node.js class is rescheduled to 8 PM tomorrow.', batch: 'Batch B - Node.js', date: 'Oct 22, 2023' },
+  { id: 1, title: 'Final Submission Reminder', content: 'Please ensure all assignments are submitted before the deadline next week.', batch: 'All Batches', date: 'Oct 24, 2023' },
+  { id: 2, title: 'Class Rescheduled', content: 'Batch B Node.js class is rescheduled to 8 PM tomorrow.', batch: 'Batch B - Node.js', date: 'Oct 22, 2023' },
 ];
 
 const initialPaymentsData: Payment[] = [
-  { id: 1, studentName: 'John Doe', email: 'john@example.com', batch: 'Batch A - React', amount: '$500.00', status: 'Paid', paymentDate: '2023-10-15' },
-  { id: 2, studentName: 'Jane Smith', email: 'jane@example.com', batch: 'Batch B - Node.js', amount: '$500.00', status: 'Unpaid', paymentDate: '' },
-  { id: 3, studentName: 'Mike Johnson', email: 'mike@example.com', batch: 'Batch A - React', amount: '$250.00', status: 'Paid', paymentDate: '2023-10-20' },
-  { id: 4, studentName: 'Emily Brown', email: 'emily@example.com', batch: 'Batch C - UI/UX', amount: '$750.00', status: 'Unpaid', paymentDate: '' },
+  { id: 1, studentName: 'John Doe', email: 'user@example.com', batch: 'Batch A - React', amount: 10000, year: 2024, status: 'Paid', paidDate: '2024-05-15' },
+  { id: 2, studentName: 'John Doe', email: 'user@example.com', batch: 'Batch A - React', amount: 10000, year: 2025, status: 'Paid', paidDate: '2025-01-10' },
+  { id: 3, studentName: 'Jane Smith', email: 'jane@example.com', batch: 'Batch B - Node.js', amount: 10000, year: 2025, status: 'Paid', paidDate: '2025-02-20' },
+];
+
+const initialUsersData: User[] = [
+  { id: 1, email: 'admin@minilms.com', password: 'password123', role: 'admin' },
+  { id: 2, email: 'user@example.com', password: 'password123', role: 'user' },
 ];
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -109,13 +135,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncementsData);
   const [payments, setPayments] = useState<Payment[]>(initialPaymentsData);
 
+  const [users, setUsers] = useState<User[]>(initialUsersData);
+  const [resetTokens, setResetTokens] = useState<ResetToken[]>([]);
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+
   return (
     <DataContext.Provider value={{
       students, setStudents,
       batches, setBatches,
       assignments, setAssignments,
       announcements, setAnnouncements,
-      payments, setPayments
+      payments, setPayments,
+      users, setUsers,
+      resetTokens, setResetTokens,
+      showAssignmentModal, setShowAssignmentModal
     }}>
       {children}
     </DataContext.Provider>
