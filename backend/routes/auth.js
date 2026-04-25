@@ -11,12 +11,20 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    if (!user.password) {
+      return res.status(500).json({ message: 'User password missing' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -28,9 +36,10 @@ router.post('/login', async (req, res) => {
     );
 
     res.json({ token, role: user.role });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("🔥 LOGIN ERROR:", err);
+    res.status(500).json({ message: err.message });
   }
 });
 
