@@ -4,12 +4,10 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { GraduationCap, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
-import { useData } from '@/contexts/DataContext';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { users } = useData();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -19,7 +17,7 @@ export default function LoginPage() {
     password: ''
   });
 
-  const handleLogin = async (roleType: 'admin' | 'user') => {
+  const handleLogin = async (roleType: 'ADMIN' | 'STUDENT') => {
     if (!formData.email || !formData.password) {
       setError("Please fill in all fields.");
       return;
@@ -28,23 +26,40 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const user = users.find(u => 
-      u.email.toLowerCase() === formData.email.toLowerCase() && 
-      u.password === formData.password &&
-      u.role === roleType
-    );
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-    if (user) {
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      // Check if role matches the button clicked
+      if (data.role !== roleType) {
+        throw new Error(`This account does not have ${roleType === 'ADMIN' ? 'Administrator' : 'Student'} privileges.`);
+      }
+
+      // Store auth info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('role', data.role);
+      localStorage.setItem('userEmail', formData.email);
+
+      toast.success(`Welcome back, ${roleType === 'ADMIN' ? 'Administrator' : 'Student'}!`);
+      
+      // Redirect based on role
+      router.push(roleType === 'ADMIN' ? '/admin/dashboard' : '/user/dashboard');
+    } catch (err: any) {
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
       setIsLoading(false);
-      toast.success(`Welcome back, ${roleType === 'admin' ? 'Administrator' : 'User'}!`);
-      router.push(roleType === 'admin' ? '/admin/dashboard' : '/user/dashboard');
-    } else {
-      setIsLoading(false);
-      setError(`Invalid credentials for ${roleType} access.`);
-      toast.error("Invalid email or password");
     }
   };
 
@@ -85,7 +100,7 @@ export default function LoginPage() {
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
-              placeholder="admin@minilms.com"
+              placeholder="admin@gmail.com"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 text-base placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               required
             />
@@ -136,7 +151,7 @@ export default function LoginPage() {
             <button
               type="button"
               disabled={isLoading}
-              onClick={() => handleLogin('admin')}
+              onClick={() => handleLogin('ADMIN')}
               className="w-full flex items-center justify-center py-3.5 px-4 bg-blue-600 text-white rounded-xl font-bold text-base shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
@@ -149,10 +164,10 @@ export default function LoginPage() {
             <button
               type="button"
               disabled={isLoading}
-              onClick={() => handleLogin('user')}
+              onClick={() => handleLogin('STUDENT')}
               className="w-full flex items-center justify-center py-3.5 px-4 bg-white text-gray-700 border-2 border-gray-100 rounded-xl font-bold text-base hover:bg-gray-50 hover:border-gray-200 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Sign in as User
+              Sign in as Student
             </button>
           </div>
         </form>

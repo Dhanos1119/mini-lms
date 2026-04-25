@@ -34,23 +34,66 @@ import {
 import Link from 'next/link';
 import { useData } from '@/contexts/DataContext';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 export default function UserDashboardPage() {
+  const router = useRouter();
   const { students, assignments, announcements, payments, users, setUsers } = useData();
   const [activeTab, setActiveTab] = useState('overview');
-  
-  // Mock logged in user (simulating session)
-  const currentUser = users.find(u => u.role === 'user') || users[1];
-  const studentProfile = students.find(s => s.email === currentUser.email) || students[0];
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    // Auth Check
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+    const userEmail = localStorage.getItem('userEmail');
+
+    if (!token || role !== 'STUDENT') {
+      router.push('/login');
+      return;
+    }
+
+    // Find user in mock users or just set from local storage info
+    const user = users.find(u => u.email === userEmail) || { email: userEmail, name: 'Student User', role: 'STUDENT' };
+    setCurrentUser(user);
+    setIsLoaded(true);
+  }, [router, users]);
+
+  const studentProfile = students.find(s => s.email === currentUser?.email) || students[0];
 
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
-    name: studentProfile?.name || '',
-    phone: studentProfile?.phone || ''
+    name: '',
+    phone: ''
   });
 
-  const currentYear = new Date().getFullYear();
+  useEffect(() => {
+    if (studentProfile) {
+      setProfileForm({
+        name: studentProfile.name,
+        phone: studentProfile.phone || ''
+      });
+    }
+  }, [studentProfile]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('userEmail');
+    toast.success("Logged out successfully");
+    router.push('/login');
+  };
+
+  if (!isLoaded || !currentUser) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="animate-pulse flex flex-col items-center gap-4">
+        <GraduationCap size={48} className="text-blue-200" />
+        <div className="h-4 w-32 bg-gray-200 rounded"></div>
+      </div>
+    </div>;
+  }
   
   // Multi-year Payment Calculations
   const studentPayments = payments.filter(p => p.email === currentUser.email).sort((a, b) => b.year - a.year);
@@ -88,8 +131,7 @@ export default function UserDashboardPage() {
   };
 
   // Dynamic Avatar Logic
-  const userEmail = currentUser.email;
-  const firstLetter = userEmail.charAt(0).toUpperCase();
+  const firstLetter = currentUser.email.charAt(0).toUpperCase();
 
   return (
     <div className="min-h-screen bg-gray-50 flex overflow-hidden font-sans text-gray-900 leading-normal">
@@ -136,13 +178,13 @@ export default function UserDashboardPage() {
         </nav>
 
         <div className="p-4 border-t border-gray-50 mb-4 px-6">
-          <Link 
-            href="/login" 
-            className="flex items-center gap-3 px-4 py-4 rounded-2xl text-gray-400 font-bold hover:bg-red-50 hover:text-red-600 transition-all group"
+                  <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-gray-400 font-bold hover:bg-red-50 hover:text-red-600 transition-all group"
           >
             <LogOut size={22} className="group-hover:scale-110 transition-all" />
             <span className="text-base">Logout</span>
-          </Link>
+          </button>
         </div>
       </aside>
 
