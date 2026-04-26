@@ -38,3 +38,11 @@ model PasswordResetToken {
   token     String   @unique
   expiresAt DateTime
 }
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  batchId   String   @default("All Batches")
+  createdAt DateTime @default(now())
+}

@@ -17,7 +17,9 @@ const authMiddleware = (req, res, next) => {
 };
 
 const adminMiddleware = (req, res, next) => {
-  if (req.user && req.user.role === 'ADMIN') {
+  // Case-insensitive check to support both old tokens (admin) and new (ADMIN)
+  const role = req.user?.role?.toUpperCase();
+  if (role === 'ADMIN') {
     next();
   } else {
     res.status(403).json({ message: 'Access denied, admin only' });

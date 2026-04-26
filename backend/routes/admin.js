@@ -138,4 +138,86 @@ router.get('/assignments', authMiddleware, adminMiddleware, async (req, res) => 
   }
 });
 
+
+
+/**
+ * ================== GET ALL STUDENTS ==================
+ */
+router.get('/students', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const students = await prisma.user.findMany({
+      where: { role: 'STUDENT' },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        batchId: true,
+        courseDuration: true,
+        phoneNumber: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    res.json(students);
+  } catch (error) {
+    console.error("FETCH STUDENTS ERROR:", error);
+    res.status(500).json({ error: "Server error", details: error.message });
+  }
+});
+
+
+/**
+ * ================== CREATE ANNOUNCEMENT ==================
+ */
+router.post('/create-announcement', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    console.log("📢 ANNOUNCEMENT BODY:", req.body);
+
+    const { title, content, batchId } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: "Title and content are required" });
+    }
+
+    const announcement = await prisma.announcement.create({
+      data: {
+        title,
+        content,
+        batchId: batchId || "All Batches"
+      }
+    });
+
+    console.log("✅ Announcement created:", announcement);
+
+    return res.status(201).json({
+      message: "Announcement posted successfully",
+      announcement
+    });
+
+  } catch (error) {
+    console.error("❌ ANNOUNCEMENT ERROR:", error);
+    return res.status(500).json({ error: "Server error", details: error.message });
+  }
+});
+
+
+/**
+ * ================== GET ALL ANNOUNCEMENTS ==================
+ */
+router.get('/announcements', authMiddleware, async (req, res) => {
+  try {
+    const announcements = await prisma.announcement.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(announcements);
+
+  } catch (error) {
+    console.error("FETCH ANNOUNCEMENTS ERROR:", error);
+    res.status(500).json({ error: "Server error", details: error.message });
+  }
+});
+
 module.exports = router;
