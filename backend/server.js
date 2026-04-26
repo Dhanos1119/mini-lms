@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 dotenv.config();
 
 const prisma = require('./utils/prisma');
+
 const app = express();
 
 // Middleware
@@ -21,6 +22,9 @@ console.log("JWT_SECRET:", process.env.JWT_SECRET);
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/assignments', require('./routes/assignments'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/batches', require('./routes/batchRoutes'));
+
 
 const PORT = process.env.PORT || 5000;
 

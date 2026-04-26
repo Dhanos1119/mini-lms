@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -45,4 +46,28 @@ model Announcement {
   content   String
   batchId   String   @default("All Batches")
   createdAt DateTime @default(now())
+}
+model Payment {
+  id           String   @id @default(uuid())
+  studentName String
+  email        String
+  batch        String
+  academicYear Int
+  amount       Float
+  paidDate     DateTime
+  status       String   @default("Paid")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Batch {
+  id          Int      @id @default(autoincrement())
+  name        String
+  instructor  String?
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  schedule    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

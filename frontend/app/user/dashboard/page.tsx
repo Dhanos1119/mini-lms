@@ -45,6 +45,9 @@ export default function UserDashboardPage() {
   const [studentAssignments, setStudentAssignments] = useState<any[]>([]);
   const [studentAnnouncements, setStudentAnnouncements] = useState<any[]>([]);
 
+  // PostgreSQL payment data
+  const [studentDbPayments, setStudentDbPayments] = useState<any[]>([]);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
@@ -104,6 +107,39 @@ export default function UserDashboardPage() {
     setIsLoaded(true);
   }, [router, users]);
 
+  // Fetch student payments from PostgreSQL backend
+  useEffect(() => {
+    const fetchStudentPayments = async () => {
+      try {
+        if (!currentUser?.email) return;
+
+        const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+        if (!API_URL) {
+          console.error("NEXT_PUBLIC_API_URL is missing in frontend/.env.local");
+          return;
+        }
+
+        const response = await fetch(
+          `${API_URL}/payments/student/${encodeURIComponent(currentUser.email)}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.error(data.message || "Failed to fetch student payments");
+          return;
+        }
+
+        setStudentDbPayments(data);
+      } catch (error) {
+        console.error("Student payment fetch error:", error);
+      }
+    };
+
+    fetchStudentPayments();
+  }, [currentUser]);
+
   const studentProfile = students.find(s => s.email === currentUser?.email) || students[0];
 
   // Profile Edit State
@@ -139,11 +175,19 @@ export default function UserDashboardPage() {
     </div>;
   }
   
-  // Multi-year Payment Calculations
-  const studentPayments = payments.filter(p => p.email === currentUser.email).sort((a, b) => b.year - a.year);
+  // Multi-year Payment Calculations from PostgreSQL
+  const studentPayments = studentDbPayments.sort(
+    (a, b) => Number(b.academicYear) - Number(a.academicYear)
+  );
+
   const paidYears = studentPayments.filter(p => p.status === 'Paid');
   const totalPaidYears = paidYears.length;
-  const totalAmountPaid = paidYears.reduce((sum, p) => sum + p.amount, 0);
+
+  const totalAmountPaid = paidYears.reduce(
+    (sum, p) => sum + Number(p.amount),
+    0
+  );
+
   const courseDuration = studentProfile?.courseDuration || 1;
   const outstandingYears = Math.max(0, courseDuration - totalPaidYears);
 
@@ -222,7 +266,7 @@ export default function UserDashboardPage() {
         </nav>
 
         <div className="p-4 border-t border-gray-50 mb-4 px-6">
-                  <button 
+          <button 
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-gray-400 font-bold hover:bg-red-50 hover:text-red-600 transition-all group"
           >
@@ -267,8 +311,8 @@ export default function UserDashboardPage() {
             <div className="space-y-10">
               {/* Yearly Payment Focus Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-                 {/* Total Paid Years */}
-                 <div className="bg-white p-7 rounded-[28px] shadow-sm hover:shadow-xl border border-gray-100 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] group cursor-default">
+                {/* Total Paid Years */}
+                <div className="bg-white p-7 rounded-[28px] shadow-sm hover:shadow-xl border border-gray-100 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] group cursor-default">
                   <div className="w-12 h-12 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-6 group-hover:bg-green-600 group-hover:text-white transition-all duration-500">
                     <CheckCircle className="w-6 h-6" />
                   </div>
@@ -352,28 +396,28 @@ export default function UserDashboardPage() {
                   </div>
                   <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm space-y-6 relative overflow-hidden">
                     <div className="flex items-center justify-between mb-2">
-                       <h4 className="text-sm font-bold text-gray-900">Academic Overview</h4>
-                       <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase">Live</span>
+                      <h4 className="text-sm font-bold text-gray-900">Academic Overview</h4>
+                      <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase">Live</span>
                     </div>
                     <div className="space-y-4">
-                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                          <div className="flex items-center gap-3">
-                             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-blue-600 shadow-sm">
-                                <Book size={18} />
-                             </div>
-                             <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Assignments</span>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-blue-600 shadow-sm">
+                            <Book size={18} />
                           </div>
-                          <span className="text-lg font-black text-gray-900">{totalAssignments}</span>
-                       </div>
-                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                          <div className="flex items-center gap-3">
-                             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-purple-600 shadow-sm">
-                                <Bell size={18} />
-                             </div>
-                             <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">News Alerts</span>
+                          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Assignments</span>
+                        </div>
+                        <span className="text-lg font-black text-gray-900">{totalAssignments}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-purple-600 shadow-sm">
+                            <Bell size={18} />
                           </div>
-                          <span className="text-lg font-black text-gray-900">{totalAnnouncements}</span>
-                       </div>
+                          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">News Alerts</span>
+                        </div>
+                        <span className="text-lg font-black text-gray-900">{totalAnnouncements}</span>
+                      </div>
                     </div>
                     <button 
                       onClick={() => setActiveTab('assignments')}
@@ -408,13 +452,13 @@ export default function UserDashboardPage() {
                         <tr key={i} className="hover:bg-blue-50/30 transition-all group">
                           <td className="px-8 py-8">
                             <div className="flex items-center gap-4">
-                               <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:text-blue-600 transition-all border border-transparent group-hover:border-blue-100 shadow-sm">
-                                  <FileText size={24} />
-                               </div>
-                               <div>
-                                  <h5 className="text-lg font-bold text-gray-900 tracking-tight">{a.title}</h5>
-                                  <p className="text-sm text-gray-500 mt-1 font-medium line-clamp-1 max-w-md">{a.description}</p>
-                               </div>
+                              <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:text-blue-600 transition-all border border-transparent group-hover:border-blue-100 shadow-sm">
+                                <FileText size={24} />
+                              </div>
+                              <div>
+                                <h5 className="text-lg font-bold text-gray-900 tracking-tight">{a.title}</h5>
+                                <p className="text-sm text-gray-500 mt-1 font-medium line-clamp-1 max-w-md">{a.description}</p>
+                              </div>
                             </div>
                           </td>
                           <td className="px-8 py-8">
@@ -451,7 +495,7 @@ export default function UserDashboardPage() {
 
           {activeTab === 'announcements' && (
             <div className="max-w-4xl mx-auto space-y-10">
-               <div className="flex flex-col border-b border-gray-100 pb-6">
+              <div className="flex flex-col border-b border-gray-100 pb-6">
                 <h3 className="text-2xl font-bold text-gray-900 tracking-tight text-center">News & Announcements</h3>
                 <p className="text-sm text-gray-500 mt-1 font-medium text-center">Stay updated with the latest alerts from your instructors and the institution.</p>
               </div>
@@ -482,7 +526,7 @@ export default function UserDashboardPage() {
 
           {activeTab === 'payments' && (
             <div className="space-y-10">
-               <div className="flex flex-col border-b border-gray-100 pb-6 mb-8">
+              <div className="flex flex-col border-b border-gray-100 pb-6 mb-8">
                 <h3 className="text-2xl font-bold text-gray-900 tracking-tight">Yearly Payment Tracking</h3>
                 <p className="text-sm text-gray-500 mt-1 font-medium">Detailed tracking of your academic dues by year.</p>
               </div>
@@ -506,7 +550,7 @@ export default function UserDashboardPage() {
                 <div className="px-10 py-8 bg-gray-50/50 border-b border-gray-100 flex justify-between items-center">
                   <h4 className="text-xl font-bold text-gray-900 flex items-center gap-3">
                     <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
-                       <Calendar size={20} />
+                      <Calendar size={20} />
                     </div>
                     Academic Year | Amount | Status
                   </h4>
@@ -522,22 +566,24 @@ export default function UserDashboardPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-50 text-base">
                     {paidYears.map((p, i) => (
-                      <tr key={i} className="hover:bg-blue-50/20 transition-all group">
-                        <td className="px-10 py-7 text-gray-900 font-black text-xl tracking-tighter">{p.year}</td>
+                      <tr key={p.id || i} className="hover:bg-blue-50/20 transition-all group">
+                        <td className="px-10 py-7 text-gray-900 font-black text-xl tracking-tighter">{p.academicYear}</td>
                         <td className="px-10 py-7 text-gray-900 font-black text-center">{p.amount}</td>
-                        <td className="px-10 py-7 text-gray-400 font-bold text-sm text-center">{p.paidDate}</td>
+                        <td className="px-10 py-7 text-gray-400 font-bold text-sm text-center">
+                          {new Date(p.paidDate).toLocaleDateString()}
+                        </td>
                         <td className="px-10 py-7 text-right">
                           <span className={`px-5 py-2 rounded-2xl text-[11px] font-black inline-flex items-center gap-2 shadow-sm uppercase tracking-widest bg-green-50 text-green-600 ring-1 ring-green-200`}>
-                             <div className={`w-2 h-2 rounded-full bg-green-600`} />
-                             Paid
+                            <div className={`w-2 h-2 rounded-full bg-green-600`} />
+                            Paid
                           </span>
                         </td>
                       </tr>
                     ))}
                     {paidYears.length === 0 && (
-                       <tr>
-                         <td colSpan={4} className="px-10 py-20 text-center text-gray-300 font-bold uppercase tracking-[0.2em]">No payment records available.</td>
-                       </tr>
+                      <tr>
+                        <td colSpan={4} className="px-10 py-20 text-center text-gray-300 font-bold uppercase tracking-[0.2em]">No payment records available.</td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -548,12 +594,12 @@ export default function UserDashboardPage() {
           {activeTab === 'profile' && (
             <div className="max-w-3xl mx-auto space-y-10">
               <div className="flex justify-between items-center bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm overflow-hidden relative">
-                 <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">My Profile</h1>
-                    <p className="text-sm text-gray-500 font-medium mt-1">Manage your personal information</p>
-                 </div>
-                 <button 
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">My Profile</h1>
+                  <p className="text-sm text-gray-500 font-medium mt-1">Manage your personal information</p>
+                </div>
+                <button 
                   onClick={() => setIsEditingProfile(!isEditingProfile)}
                   className={`relative z-10 flex items-center gap-2 px-8 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-95 shadow-lg ${
                     isEditingProfile ? 'bg-gray-100 text-gray-700 shadow-none' : 'bg-blue-600 text-white shadow-blue-200'
@@ -565,70 +611,70 @@ export default function UserDashboardPage() {
               </div>
 
               <div className="bg-white p-10 rounded-[24px] border border-gray-100 shadow-md relative overflow-hidden group">
-                 <div className="flex flex-col sm:flex-row items-center gap-8 border-b border-gray-100 pb-10 mb-10">
-                    <div className="w-16 h-16 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold shadow-inner">
-                       {firstLetter}
+                <div className="flex flex-col sm:flex-row items-center gap-8 border-b border-gray-100 pb-10 mb-10">
+                  <div className="w-16 h-16 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold shadow-inner">
+                    {firstLetter}
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <h4 className="text-3xl font-bold text-gray-900 leading-none tracking-tight">
+                      {isEditingProfile ? (profileForm.name || studentProfile?.name) : studentProfile?.name}
+                    </h4>
+                    <div className="flex items-center gap-3 mt-3">
+                      <span className="text-blue-600 font-black uppercase tracking-widest text-[11px] bg-blue-50 px-3 py-1 rounded-md">{studentProfile?.batch}</span>
+                      <span className="text-gray-500 font-medium uppercase tracking-widest text-xs">STUDENT</span>
                     </div>
-                    <div className="text-center sm:text-left">
-                       <h4 className="text-3xl font-bold text-gray-900 leading-none tracking-tight">
-                          {isEditingProfile ? (profileForm.name || studentProfile?.name) : studentProfile?.name}
-                       </h4>
-                       <div className="flex items-center gap-3 mt-3">
-                          <span className="text-blue-600 font-black uppercase tracking-widest text-[11px] bg-blue-50 px-3 py-1 rounded-md">{studentProfile?.batch}</span>
-                          <span className="text-gray-500 font-medium uppercase tracking-widest text-xs">STUDENT</span>
-                       </div>
-                    </div>
-                 </div>
+                  </div>
+                </div>
 
-                 <form onSubmit={handleUpdateProfile} className="space-y-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                       <div className="space-y-3">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Full Name</label>
-                          <div className="relative group">
-                            <input 
-                              type="text" 
-                              disabled={!isEditingProfile}
-                              value={profileForm.name}
-                              onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
-                              className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-800 text-sm font-medium focus:bg-white focus:border-blue-500 transition-all outline-none disabled:opacity-75 disabled:cursor-not-allowed"
-                            />
-                          </div>
-                       </div>
-                       <div className="space-y-3">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Phone Number</label>
-                          <input 
-                            type="tel" 
-                            disabled={!isEditingProfile}
-                            value={profileForm.phone}
-                            onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-800 text-sm font-medium focus:bg-white focus:border-blue-500 transition-all outline-none disabled:opacity-75 disabled:cursor-not-allowed"
-                          />
-                       </div>
-                       <div className="space-y-3">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Email</label>
-                          <div className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-800 text-sm font-medium cursor-not-allowed opacity-75">
-                            {currentUser.email}
-                          </div>
-                       </div>
-                       <div className="space-y-3">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Batch</label>
-                          <div className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-800 text-sm font-medium cursor-not-allowed opacity-75">
-                            {studentProfile?.batch}
-                          </div>
-                       </div>
-                    </div>
-
-                    {isEditingProfile && (
-                      <div className="pt-6 animate-in slide-in-from-bottom-4 duration-300">
-                        <button 
-                          type="submit"
-                          className="flex items-center justify-center gap-3 px-8 py-3 bg-blue-600 text-white rounded-lg font-bold text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-[0.98] transition-all"
-                        >
-                          <Save size={18} /> Edit Profile
-                        </button>
+                <form onSubmit={handleUpdateProfile} className="space-y-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Full Name</label>
+                      <div className="relative group">
+                        <input 
+                          type="text" 
+                          disabled={!isEditingProfile}
+                          value={profileForm.name}
+                          onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-800 text-sm font-medium focus:bg-white focus:border-blue-500 transition-all outline-none disabled:opacity-75 disabled:cursor-not-allowed"
+                        />
                       </div>
-                    )}
-                 </form>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Phone Number</label>
+                      <input 
+                        type="tel" 
+                        disabled={!isEditingProfile}
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-800 text-sm font-medium focus:bg-white focus:border-blue-500 transition-all outline-none disabled:opacity-75 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Email</label>
+                      <div className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-800 text-sm font-medium cursor-not-allowed opacity-75">
+                        {currentUser.email}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Batch</label>
+                      <div className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-gray-800 text-sm font-medium cursor-not-allowed opacity-75">
+                        {studentProfile?.batch}
+                      </div>
+                    </div>
+                  </div>
+
+                  {isEditingProfile && (
+                    <div className="pt-6 animate-in slide-in-from-bottom-4 duration-300">
+                      <button 
+                        type="submit"
+                        className="flex items-center justify-center gap-3 px-8 py-3 bg-blue-600 text-white rounded-lg font-bold text-sm shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                      >
+                        <Save size={18} /> Edit Profile
+                      </button>
+                    </div>
+                  )}
+                </form>
               </div>
             </div>
           )}

@@ -30,6 +30,8 @@ const formatDate = (dateStr: string) => {
 export default function BatchesPage() {
   const { batches, setBatches, students } = useData();
   const [searchQuery, setSearchQuery] = useState('');
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
   
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -45,6 +47,28 @@ export default function BatchesPage() {
     instructor: '',
     schedule: ''
   });
+
+  // Fetch batches from PostgreSQL database
+  useEffect(() => {
+    const fetchBatchesFromDb = async () => {
+      try {
+        const response = await fetch(`${API_URL}/batches`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          toast.error(data.message || "Failed to load batches");
+          return;
+        }
+
+        setBatches(data);
+      } catch (error) {
+        console.error("Fetch batches error:", error);
+        toast.error("Failed to connect to batch API");
+      }
+    };
+
+    fetchBatchesFromDb();
+  }, [API_URL, setBatches]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -77,43 +101,114 @@ export default function BatchesPage() {
     ) : "-"
   }));
 
-  const handleCreateBatch = (e: React.FormEvent) => {
+  const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!newBatch.name || !newBatch.startDate) {
       toast.error("Please fill required fields");
       return;
     }
 
-    const batchToAdd: Batch = {
-      id: Date.now(),
-      name: newBatch.name!,
-      instructor: newBatch.instructor || 'TBD',
-      description: newBatch.description || '',
-      startDate: newBatch.startDate!,
-      endDate: newBatch.endDate || '',
-      studentsCount: '0',
-      schedule: newBatch.schedule || 'TBD'
-    };
+    try {
+      const response = await fetch(`${API_URL}/batches`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: newBatch.name,
+          instructor: newBatch.instructor || "TBD",
+          description: newBatch.description || "",
+          startDate: newBatch.startDate,
+          endDate: newBatch.endDate || "",
+          schedule: newBatch.schedule || "TBD"
+        })
+      });
 
-    setBatches([batchToAdd, ...batches]);
-    setShowCreateModal(false);
-    setNewBatch({ name: '', description: '', startDate: '', endDate: '', instructor: '', schedule: '' });
-    toast.success("Batch created successfully");
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.message || "Failed to create batch");
+        return;
+      }
+
+      setBatches([data.batch, ...batches]);
+      setShowCreateModal(false);
+      setNewBatch({
+        name: '',
+        description: '',
+        startDate: '',
+        endDate: '',
+        instructor: '',
+        schedule: ''
+      });
+
+      toast.success("Batch created successfully");
+    } catch (error) {
+      console.error("Create batch error:", error);
+      toast.error("Failed to connect to server");
+    }
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!editItem) return;
-    setBatches(batches.map(b => b.id === editItem.id ? editItem : b));
-    setEditItem(null);
-    toast.success("Batch updated successfully");
+
+    try {
+      const response = await fetch(`${API_URL}/batches/${editItem.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: editItem.name,
+          instructor: editItem.instructor || "TBD",
+          description: editItem.description || "",
+          startDate: editItem.startDate,
+          endDate: editItem.endDate || "",
+          schedule: editItem.schedule || "TBD"
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.message || "Failed to update batch");
+        return;
+      }
+
+      setBatches(batches.map(b => b.id === editItem.id ? data.batch : b));
+      setEditItem(null);
+      toast.success("Batch updated successfully");
+    } catch (error) {
+      console.error("Update batch error:", error);
+      toast.error("Failed to connect to server");
+    }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteItem) return;
-    setBatches(batches.filter(b => b.id !== deleteItem.id));
-    setDeleteItem(null);
-    toast.success("Batch deleted successfully");
+
+    try {
+      const response = await fetch(`${API_URL}/batches/${deleteItem.id}`, {
+        method: "DELETE"
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.message || "Failed to delete batch");
+        return;
+      }
+
+      setBatches(batches.filter(b => b.id !== deleteItem.id));
+      setDeleteItem(null);
+      toast.success("Batch deleted successfully");
+    } catch (error) {
+      console.error("Delete batch error:", error);
+      toast.error("Failed to connect to server");
+    }
   };
 
   const inputClass = "h-11 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition w-full text-gray-800 placeholder-gray-400";
@@ -258,7 +353,7 @@ export default function BatchesPage() {
                   <input 
                     type="text" 
                     autoFocus={showCreateModal}
-                    placeholder="e.g. Batch D - Python" 
+                    placeholder="e.g. Batch/2026" 
                     value={showCreateModal ? newBatch.name : editItem?.name} 
                     onChange={e => showCreateModal ? setNewBatch({...newBatch, name: e.target.value}) : setEditItem({...editItem!, name: e.target.value})} 
                     className={inputClass} 
