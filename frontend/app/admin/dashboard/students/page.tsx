@@ -234,13 +234,29 @@ function StudentsContent() {
         </div>
       </PageHeader>
 
-      <Table 
-        columns={columns} 
-        data={formattedStudents} 
-        onView={(student) => { setViewItem(student); setViewTab('info'); }}
-        onEdit={(student) => setEditItem(student)}
-        onDelete={(student) => setDeleteItem(student)}
-      />
+      {isLoading ? (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-6 space-y-3 animate-pulse">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex gap-4">
+                <div className="h-10 bg-gray-100 rounded-lg flex-1" />
+                <div className="h-10 bg-gray-100 rounded-lg flex-1" />
+                <div className="h-10 bg-gray-100 rounded-lg w-32" />
+                <div className="h-10 bg-gray-100 rounded-lg w-24" />
+                <div className="h-10 bg-gray-100 rounded-lg w-20" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <Table 
+          columns={columns} 
+          data={formattedStudents} 
+          onView={(student) => { setViewItem(student); setViewTab('info'); }}
+          onEdit={(student) => setEditItem(student)}
+          onDelete={(student) => setDeleteItem(student)}
+        />
+      )}
 
       {/* Add Student Modal */}
       {showAddForm && (
