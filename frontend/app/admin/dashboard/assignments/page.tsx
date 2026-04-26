@@ -22,9 +22,11 @@ function AssignmentsContent() {
   const searchParams = useSearchParams();
   const { 
     assignments, 
-    setAssignments, 
+    setAssignments,
+    refreshAssignments,
     announcements, 
     setAnnouncements, 
+    refreshAnnouncements,
     setShowAssignmentModal 
   } = useData();
 
@@ -32,6 +34,7 @@ function AssignmentsContent() {
   const [batchFilter, setBatchFilter] = useState('');
   
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [isPostingAnnouncement, setIsPostingAnnouncement] = useState(false);
   
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementContent, setAnnouncementContent] = useState('');
@@ -48,6 +51,12 @@ function AssignmentsContent() {
     }
   }, [searchParams, setShowAssignmentModal, router]);
 
+  // Load real data from DB on mount
+  useEffect(() => {
+    refreshAssignments();
+    refreshAnnouncements();
+  }, [refreshAssignments, refreshAnnouncements]);
+
   const filteredAssignments = assignments.filter(assignment => {
     const matchesSearch = assignment.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesBatch = batchFilter ? assignment.batch === batchFilter : true;
@@ -59,20 +68,45 @@ function AssignmentsContent() {
     description: a.description.length > 40 ? a.description.substring(0, 40) + '...' : a.description
   }));
 
-  const handlePostAnnouncement = (e: React.FormEvent) => {
+  const handlePostAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcementTitle.trim() || !announcementContent.trim()) return;
-    setAnnouncements([{ 
-      id: Date.now(), 
-      title: announcementTitle,
-      content: announcementContent, 
-      batch: announcementBatch, 
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
-    }, ...announcements]);
-    setAnnouncementTitle('');
-    setAnnouncementContent('');
-    setShowAnnouncementForm(false);
-    toast.success("Announcement posted successfully!");
+
+    setIsPostingAnnouncement(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/create-announcement`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: announcementTitle,
+          content: announcementContent,
+          batchId: announcementBatch
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to post announcement');
+      }
+
+      // Re-fetch from DB to display the real persisted announcement
+      await refreshAnnouncements();
+
+      setAnnouncementTitle('');
+      setAnnouncementContent('');
+      setShowAnnouncementForm(false);
+      toast.success("Announcement posted successfully!");
+
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to post announcement');
+    } finally {
+      setIsPostingAnnouncement(false);
+    }
   };
 
   const confirmDelete = () => {
@@ -179,9 +213,10 @@ function AssignmentsContent() {
               </button>
               <button 
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-8 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg shadow-blue-500/20"
+                disabled={isPostingAnnouncement}
+                className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-8 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-70 flex items-center gap-2"
               >
-                Post Announcement
+                {isPostingAnnouncement ? 'Posting...' : 'Post Announcement'}
               </button>
             </div>
           </form>

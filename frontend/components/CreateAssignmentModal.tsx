@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from 'react';
-import { X, Upload, File as FileIcon, Trash2, FileText, BookOpen, Clock, Layout } from 'lucide-react';
+import { X, Upload, File as FileIcon, Trash2, FileText, BookOpen, Clock, Layout, Loader2 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import toast from 'react-hot-toast';
 
@@ -10,7 +10,7 @@ interface CreateAssignmentModalProps {
 }
 
 export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
-  const { batches } = useData();
+  const { batches, refreshAssignments } = useData();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -21,44 +21,57 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
 
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!formData.title || !formData.description || !formData.dueDate) {
-    toast.error("Please fill all fields");
-    return;
-  }
+    if (!formData.title || !formData.description || !formData.dueDate) {
+      toast.error("Please fill all required fields");
+      return;
+    }
 
-  try {
-    const res = await fetch("http://localhost:5000/api/admin/assignments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`
-      },
-      body: JSON.stringify({
-        title: formData.title,
-        description: formData.description,
-        batchId: formData.batch,   // ⚠️ IMPORTANT
-        dueDate: formData.dueDate
-      })
-    });
+    setIsSubmitting(true);
 
-    const data = await res.json();
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/assignments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          batchId: formData.batch,
+          dueDate: formData.dueDate,
+          fileUrl: file ? URL.createObjectURL(file) : null
+        })
+      });
 
-    console.log("Created:", data);
+      const data = await res.json();
 
-    toast.success("Assignment created!");
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Failed to create assignment");
+      }
 
-    onClose();
+      console.log("✅ Assignment created in DB:", data.assignment);
 
-  } catch (err) {
-    console.error(err);
-    toast.error("Error creating assignment");
-  }
-};
+      // Re-fetch from DB so the table shows the real persisted row
+      await refreshAssignments();
+
+      toast.success("Assignment created successfully!");
+      onClose();
+
+    } catch (err: any) {
+      console.error("❌ Assignment creation error:", err);
+      toast.error(err.message || "Error creating assignment");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const inputClass = "h-11 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition w-full text-gray-800 placeholder-gray-400";
   const textareaClass = "rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition w-full text-gray-800 placeholder-gray-400 resize-none min-h-[120px]";
@@ -104,6 +117,7 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
                   onChange={(e) => setFormData({...formData, title: e.target.value})}
                   className={inputClass}
                   required
+                  disabled={isSubmitting}
                 />
               </div>
               <div className="space-y-1">
@@ -116,6 +130,7 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
                   onChange={(e) => setFormData({...formData, batch: e.target.value})}
                   className={inputClass}
                   required
+                  disabled={isSubmitting}
                 >
                   {batches.map(b => (
                     <option key={b.id} value={b.name}>{b.name}</option>
@@ -133,6 +148,7 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
                   onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
                   className={inputClass}
                   required
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
@@ -148,6 +164,7 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
                 placeholder="Enter assignment instructions..."
                 className={textareaClass}
                 required
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -200,15 +217,24 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
             <button 
               type="button" 
               onClick={onClose}
+              disabled={isSubmitting}
               className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:scale-95 text-sm font-medium transition-all"
             >
               Cancel
             </button>
             <button 
               type="submit"
-              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-95 text-sm font-medium shadow transition-all"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-95 text-sm font-medium shadow transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Create Assignment
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Assignment"
+              )}
             </button>
           </div>
         </form>

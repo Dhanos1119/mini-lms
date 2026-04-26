@@ -38,25 +38,69 @@ import { useRouter } from 'next/navigation';
 
 export default function UserDashboardPage() {
   const router = useRouter();
-  const { students, assignments, announcements, payments, users, setUsers } = useData();
+  const { students, payments, users } = useData();
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [studentAssignments, setStudentAssignments] = useState<any[]>([]);
+  const [studentAnnouncements, setStudentAnnouncements] = useState<any[]>([]);
 
   useEffect(() => {
-    // Auth Check
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
     const userEmail = localStorage.getItem('userEmail');
 
-    if (!token || role !== 'STUDENT') {
+    if (!token || role?.toUpperCase() !== 'STUDENT') {
       router.push('/login');
       return;
     }
 
-    // Find user in mock users or just set from local storage info
     const user = users.find(u => u.email === userEmail) || { email: userEmail, name: 'Student User', role: 'STUDENT' };
     setCurrentUser(user);
+
+    // Fetch assignments for this student's batch
+    const fetchAssignments = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assignments/student`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStudentAssignments(data.map((a: any) => ({
+            ...a,
+            batch: a.batchId,
+            dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '',
+            status: 'Active',
+          })));
+        }
+      } catch (err) {
+        console.error('Failed to fetch student assignments:', err);
+      }
+    };
+
+    // Fetch announcements filtered by batch + global
+    const fetchAnnouncements = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assignments/announcements`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStudentAnnouncements(data.map((a: any) => ({
+            id: a.id,
+            title: a.title,
+            content: a.content,
+            batch: a.batchId,
+            date: new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          })));
+        }
+      } catch (err) {
+        console.error('Failed to fetch student announcements:', err);
+      }
+    };
+
+    fetchAssignments();
+    fetchAnnouncements();
     setIsLoaded(true);
   }, [router, users]);
 
@@ -103,11 +147,11 @@ export default function UserDashboardPage() {
   const courseDuration = studentProfile?.courseDuration || 1;
   const outstandingYears = Math.max(0, courseDuration - totalPaidYears);
 
-  // Filter assignments exactly by batch
-  const studentAssignments = assignments.filter(a => a.batch === studentProfile?.batch);
-  const studentAnnouncements = announcements.filter(a => a.batch === studentProfile?.batch || a.batch === 'All Batches');
+  // Use DB-fetched announcements (already filtered by batch on backend)
+
 
   const totalAssignments = studentAssignments.length;
+
   const totalAnnouncements = studentAnnouncements.length;
 
   const handleUpdateProfile = (e: React.FormEvent) => {

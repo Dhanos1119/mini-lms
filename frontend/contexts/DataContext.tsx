@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 // --- Types ---
 
@@ -12,7 +12,7 @@ export interface Student {
   phone: string;
   totalPaid: number;
   status: string;
-  courseDuration: number; // in years
+  courseDuration: number;
   joinedYear: number;
 }
 
@@ -28,7 +28,7 @@ export interface Batch {
 }
 
 export interface Assignment {
-  id: number;
+  id: number | string;
   title: string;
   batch: string;
   description: string;
@@ -36,7 +36,7 @@ export interface Assignment {
   status: string;
   fileUrl?: string;
   fileName?: string;
-  statusMap?: Record<string, string>; // email -> status
+  statusMap?: Record<string, string>;
 }
 
 export interface Announcement {
@@ -51,7 +51,7 @@ export interface User {
   id: number;
   email: string;
   password: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'ADMIN' | 'STUDENT';
 }
 
 export interface ResetToken {
@@ -78,8 +78,10 @@ interface DataContextType {
   setBatches: React.Dispatch<React.SetStateAction<Batch[]>>;
   assignments: Assignment[];
   setAssignments: React.Dispatch<React.SetStateAction<Assignment[]>>;
+  refreshAssignments: () => Promise<void>;
   announcements: Announcement[];
   setAnnouncements: React.Dispatch<React.SetStateAction<Announcement[]>>;
+  refreshAnnouncements: () => Promise<void>;  // ← Shared fetch
   payments: Payment[];
   setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
   users: User[];
@@ -90,24 +92,12 @@ interface DataContextType {
   setShowAssignmentModal: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-// --- Initial Mock Data ---
-
-const initialStudentsData: Student[] = [
-  { id: 1, name: 'John Doe', email: 'user@example.com', batch: 'Batch A - React', phone: '+1234567890', totalPaid: 20000, status: 'Active', courseDuration: 4, joinedYear: 2024 },
-  { id: 2, name: 'Jane Smith', email: 'jane@example.com', batch: 'Batch B - Node.js', phone: '+0987654321', totalPaid: 10000, status: 'Active', courseDuration: 3, joinedYear: 2025 },
-];
+// --- Initial Mock Data (used as fallback until API responds) ---
 
 const initialBatchesData: Batch[] = [
   { id: 1, name: 'Batch A - React', instructor: 'Dr. Sarah Wilson', studentsCount: '0', schedule: 'Mon/Wed 6PM', description: 'Advanced React patterns and hooks.', startDate: '2023-11-01', endDate: '2024-02-01' },
   { id: 2, name: 'Batch B - Node.js', instructor: 'Prof. Mark Thompson', studentsCount: '0', schedule: 'Tue/Thu 7PM', description: 'Backend API design using Express.', startDate: '2023-11-15', endDate: '2024-02-15' },
   { id: 3, name: 'Batch C - UI/UX', instructor: 'Elena Rodriguez', studentsCount: '0', schedule: 'Sat 10AM', description: 'Design fundamentals with Figma.', startDate: '2023-12-05', endDate: '2024-03-05' },
-];
-
-const initialAssignmentsData: Assignment[] = [
-  { id: 1, title: 'React Hooks Project', batch: 'Batch A - React', description: 'Implement a custom hook library supporting local storage.', dueDate: '2023-11-10', status: 'Active', fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', fileName: 'react_hooks.pdf', statusMap: { 'user@example.com': 'Completed' } },
-  { id: 2, title: 'Express API Design', batch: 'Batch B - Node.js', description: 'Design RESTful routes for a mock e-commerce backend.', dueDate: '2023-11-12', status: 'Grading', fileUrl: '', fileName: '', statusMap: {} },
-  { id: 3, title: 'Figma Auto Layout', batch: 'Batch C - UI/UX', description: 'Create a fully responsive mobile wireframe.', dueDate: '2023-11-15', status: 'Active', fileUrl: '', fileName: '', statusMap: {} },
-  { id: 4, title: 'Next.js App Router', batch: 'Batch A - React', description: 'Migrate a pages/ project to the app/ directory using Layouts.', dueDate: '2023-11-20', status: 'Upcoming', fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', fileName: 'nextjs_router.pdf', statusMap: { 'user@example.com': 'Pending' } },
 ];
 
 const initialAnnouncementsData: Announcement[] = [
@@ -122,29 +112,85 @@ const initialPaymentsData: Payment[] = [
 ];
 
 const initialUsersData: User[] = [
-  { id: 1, email: 'admin@minilms.com', password: 'password123', role: 'admin' },
-  { id: 2, email: 'user@example.com', password: 'password123', role: 'user' },
+  { id: 1, email: 'admin@gmail.com', password: '', role: 'ADMIN' },
 ];
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [students, setStudents] = useState<Student[]>(initialStudentsData);
+  const [students, setStudents] = useState<Student[]>([]);
   const [batches, setBatches] = useState<Batch[]>(initialBatchesData);
-  const [assignments, setAssignments] = useState<Assignment[]>(initialAssignmentsData);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncementsData);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [payments, setPayments] = useState<Payment[]>(initialPaymentsData);
-
   const [users, setUsers] = useState<User[]>(initialUsersData);
   const [resetTokens, setResetTokens] = useState<ResetToken[]>([]);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+
+  // ─── Shared refreshAssignments ────────────────────────────────────────────
+  const refreshAssignments = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/assignments`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const mapped: Assignment[] = data.map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        batch: a.batchId,
+        description: a.description || '',
+        dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '',
+        status: 'Active',
+        fileUrl: a.fileUrl || '',
+        fileName: '',
+        statusMap: {}
+      }));
+
+      setAssignments(mapped);
+    } catch (err) {
+      console.error('refreshAssignments failed:', err);
+    }
+  }, []);
+
+  // ─── Shared refreshAnnouncements ──────────────────────────────────────────
+  const refreshAnnouncements = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/announcements`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const mapped: Announcement[] = data.map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        batch: a.batchId,
+        date: new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      }));
+
+      setAnnouncements(mapped);
+    } catch (err) {
+      console.error('refreshAnnouncements failed:', err);
+    }
+  }, []);
 
   return (
     <DataContext.Provider value={{
       students, setStudents,
       batches, setBatches,
-      assignments, setAssignments,
-      announcements, setAnnouncements,
+      assignments, setAssignments, refreshAssignments,
+      announcements, setAnnouncements, refreshAnnouncements,
       payments, setPayments,
       users, setUsers,
       resetTokens, setResetTokens,

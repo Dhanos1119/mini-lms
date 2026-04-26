@@ -18,7 +18,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
 
-    if (!token || role !== 'ADMIN') {
+    if (!token || role?.toUpperCase() !== 'ADMIN') {
       router.push('/login');
     } else {
       setIsAuthorized(true);

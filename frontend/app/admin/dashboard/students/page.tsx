@@ -31,9 +31,37 @@ function StudentsContent() {
   const [editItem, setEditItem] = useState<any>(null);
   const [viewItem, setViewItem] = useState<any>(null);
   const [deleteItem, setDeleteItem] = useState<any>(null);
-  const [viewTab, setViewTab] = useState('info'); // info, academic, financial
+  const [viewTab, setViewTab] = useState('info');
 
   const [newStudent, setNewStudent] = useState({ name: '', email: '', phone: '', batch: '', status: 'Active', courseDuration: 4 });
+
+  // ─── Fetch real students from DB ──────────────────────────────────────────
+  const fetchStudents = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/students`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      // Map DB field names to what the table expects
+      const mapped = data.map((s: any) => ({
+        ...s,
+        batch: s.batchId,
+        phone: s.phoneNumber || '',
+        joinedYear: new Date(s.createdAt).getFullYear(),
+        totalPaid: 0,
+      }));
+      setStudents(mapped);
+    } catch (err) {
+      console.error('Failed to fetch students:', err);
+    }
+  };
+
+  // Load on mount
+  useEffect(() => {
+    fetchStudents();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle Query Params
   useEffect(() => {
@@ -102,19 +130,11 @@ function StudentsContent() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to add student');
+        throw new Error(data.error || data.message || 'Failed to add student');
       }
 
-      // Add to local state (for simulation since we don't have a GET students API yet)
-      const studentToAdd = {
-        ...newStudent,
-        id: Date.now(),
-        joinedYear: new Date().getFullYear(),
-        totalPaid: 0,
-        courseDuration: Number(newStudent.courseDuration)
-      };
-
-      setStudents([studentToAdd, ...students]);
+      // ✅ Re-fetch from DB to get the real persisted row
+      await fetchStudents();
 
       setShowAddForm(false);
       setNewStudent({ name: '', email: '', phone: '', batch: '', status: 'Active', courseDuration: 4 });
