@@ -20,6 +20,7 @@ console.log("JWT_SECRET:", process.env.JWT_SECRET);
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/assignments', require('./routes/assignments'));
 
 const PORT = process.env.PORT || 5000;
 
