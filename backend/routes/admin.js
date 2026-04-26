@@ -219,5 +219,66 @@ router.get('/announcements', authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Server error", details: error.message });
   }
 });
+/**
+ * ================== GET LOGGED-IN STUDENT PROFILE ==================
+ */
+router.get('/student-profile', authMiddleware, async (req, res) => {
+  try {
+    const tokenUser = req.user || {};
 
+    const userId = tokenUser.id || tokenUser.userId || req.userId;
+    const email = tokenUser.email || req.email || req.userEmail;
+
+    if (!userId && !email) {
+      return res.status(401).json({
+        error: "User details not found in token"
+      });
+    }
+
+    const student = await prisma.user.findFirst({
+      where: {
+        role: 'STUDENT',
+        ...(userId
+          ? { id: userId }
+          : { email: String(email).toLowerCase() })
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        batchId: true,
+        courseDuration: true,
+        phoneNumber: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        error: "Student profile not found"
+      });
+    }
+
+    return res.json({
+      id: student.id,
+      name: student.name,
+      email: student.email,
+      batch: student.batchId,
+      batchId: student.batchId,
+      courseDuration: student.courseDuration,
+      phone: student.phoneNumber,
+      phoneNumber: student.phoneNumber,
+      status: student.status,
+      createdAt: student.createdAt
+    });
+
+  } catch (error) {
+    console.error("FETCH STUDENT PROFILE ERROR:", error);
+    return res.status(500).json({
+      error: "Server error",
+      details: error.message
+    });
+  }
+});
 module.exports = router;
