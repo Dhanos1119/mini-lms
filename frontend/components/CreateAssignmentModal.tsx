@@ -10,7 +10,7 @@ interface CreateAssignmentModalProps {
 }
 
 export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
-  const { batches, assignments, setAssignments } = useData();
+  const { batches } = useData();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -23,26 +23,42 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title || !formData.description || !formData.dueDate) {
-      toast.error("Please fill in all required fields.");
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    const assignmentToAdd = {
-      id: Date.now(),
-      ...formData,
-      status: 'Active',
-      fileUrl: file ? URL.createObjectURL(file) : '',
-      fileName: file ? file.name : '',
-      statusMap: {}
-    };
+  if (!formData.title || !formData.description || !formData.dueDate) {
+    toast.error("Please fill all fields");
+    return;
+  }
 
-    setAssignments([assignmentToAdd, ...assignments]);
-    toast.success("Assignment created successfully!");
+  try {
+    const res = await fetch("http://localhost:5000/api/admin/assignments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`
+      },
+      body: JSON.stringify({
+        title: formData.title,
+        description: formData.description,
+        batchId: formData.batch,   // ⚠️ IMPORTANT
+        dueDate: formData.dueDate
+      })
+    });
+
+    const data = await res.json();
+
+    console.log("Created:", data);
+
+    toast.success("Assignment created!");
+
     onClose();
-  };
+
+  } catch (err) {
+    console.error(err);
+    toast.error("Error creating assignment");
+  }
+};
 
   const inputClass = "h-11 rounded-lg border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition w-full text-gray-800 placeholder-gray-400";
   const textareaClass = "rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition w-full text-gray-800 placeholder-gray-400 resize-none min-h-[120px]";
