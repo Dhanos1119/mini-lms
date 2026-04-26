@@ -12,7 +12,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const { showAssignmentModal, setShowAssignmentModal } = useData();
+  const { showAssignmentModal, setShowAssignmentModal, refreshAssignments, refreshAnnouncements, setStudents } = useData();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -20,10 +20,39 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
     if (!token || role?.toUpperCase() !== 'ADMIN') {
       router.push('/login');
-    } else {
-      setIsAuthorized(true);
+      return;
     }
-  }, [router]);
+
+    // ✅ Token is confirmed valid — now safe to pre-fetch all shared admin data
+    setIsAuthorized(true);
+
+    const prefetchAdminData = async () => {
+      try {
+        const [studentsRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/students`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          refreshAssignments(),
+          refreshAnnouncements(),
+        ]);
+
+        if (studentsRes.ok) {
+          const data = await studentsRes.json();
+          setStudents(data.map((s: any) => ({
+            ...s,
+            batch: s.batchId,
+            phone: s.phoneNumber || '',
+            joinedYear: new Date(s.createdAt).getFullYear(),
+            totalPaid: 0,
+          })));
+        }
+      } catch (err) {
+        console.error('Prefetch error:', err);
+      }
+    };
+
+    prefetchAdminData();
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 

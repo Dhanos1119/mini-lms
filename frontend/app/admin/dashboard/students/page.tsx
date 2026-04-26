@@ -25,6 +25,7 @@ function StudentsContent() {
   const [batchFilter, setBatchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // ← prevents false empty state
 
   // Modal States
   const [showAddForm, setShowAddForm] = useState(false);
@@ -37,14 +38,15 @@ function StudentsContent() {
 
   // ─── Fetch real students from DB ──────────────────────────────────────────
   const fetchStudents = async () => {
+    setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
+      if (!token) return;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/students`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) return;
       const data = await res.json();
-      // Map DB field names to what the table expects
       const mapped = data.map((s: any) => ({
         ...s,
         batch: s.batchId,
@@ -55,12 +57,19 @@ function StudentsContent() {
       setStudents(mapped);
     } catch (err) {
       console.error('Failed to fetch students:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Load on mount
+  // Load on mount — data may already be in context from Layout prefetch
   useEffect(() => {
-    fetchStudents();
+    if (students.length > 0) {
+      // Already populated by Layout prefetch, no need to re-fetch
+      setIsLoading(false);
+    } else {
+      fetchStudents();
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle Query Params
