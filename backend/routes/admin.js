@@ -281,4 +281,86 @@ router.get('/student-profile', authMiddleware, async (req, res) => {
     });
   }
 });
+
+/**
+ * ================== UPDATE STUDENT ==================
+ */
+router.put('/students/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, phoneNumber, batchId, courseDuration, status } = req.body;
+
+    if (!name || !batchId || !courseDuration) {
+      return res.status(400).json({
+        error: "Name, batch, and course duration are required"
+      });
+    }
+
+    const updatedStudent = await prisma.user.update({
+      where: { id },
+      data: {
+        name,
+        phoneNumber: phoneNumber || "",
+        batchId,
+        courseDuration: Number(courseDuration),
+        status: status || "Active"
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        batchId: true,
+        courseDuration: true,
+        phoneNumber: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    return res.json({
+      message: "Student updated successfully",
+      student: updatedStudent
+    });
+  } catch (error) {
+    console.error("UPDATE STUDENT ERROR:", error);
+    return res.status(500).json({
+      error: "Failed to update student",
+      details: error.message
+    });
+  }
+});
+
+
+/**
+ * ================== DELETE STUDENT ==================
+ */
+router.delete('/students/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const student = await prisma.user.findUnique({
+      where: { id }
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        error: "Student not found"
+      });
+    }
+
+    await prisma.user.delete({
+      where: { id }
+    });
+
+    return res.json({
+      message: "Student deleted successfully"
+    });
+  } catch (error) {
+    console.error("DELETE STUDENT ERROR:", error);
+    return res.status(500).json({
+      error: "Failed to delete student",
+      details: error.message
+    });
+  }
+});
 module.exports = router;

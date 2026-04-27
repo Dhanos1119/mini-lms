@@ -40,6 +40,8 @@ function StudentsContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // DB batches from Admin Batch Management
   const [dbBatches, setDbBatches] = useState<any[]>([]);
@@ -92,7 +94,7 @@ function StudentsContent() {
         ...s,
         batch: s.batchId,
         phone: s.phoneNumber || "",
-        joinedYear: new Date(s.createdAt).getFullYear(),
+        joinedYear: s.createdAt ? new Date(s.createdAt).getFullYear() : "",
         totalPaid: 0,
       }));
 
@@ -122,12 +124,7 @@ function StudentsContent() {
   };
 
   useEffect(() => {
-    if (students.length > 0) {
-      setIsLoading(false);
-    } else {
-      fetchStudents();
-    }
-
+    fetchStudents();
     fetchBatchesFromDb();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -200,7 +197,7 @@ function StudentsContent() {
             name: newStudent.name,
             email: newStudent.email,
             batchId: newStudent.batch,
-            courseDuration: newStudent.courseDuration,
+            courseDuration: Number(newStudent.courseDuration),
             phoneNumber: newStudent.phone,
             status: newStudent.status,
           }),
@@ -250,30 +247,91 @@ function StudentsContent() {
     }
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  // UPDATE student in PostgreSQL
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setStudents(
-      students.map((s) =>
-        s.id === editItem.id
-          ? {
-              ...editItem,
-              courseDuration: Number(editItem.courseDuration),
-            }
-          : s
-      )
-    );
+    if (!editItem) return;
 
-    setEditItem(null);
-    toast.success("Student updated successfully");
+    if (!editItem.name || !editItem.batch || !editItem.courseDuration) {
+      toast.error("Name, batch, and course duration are required.");
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/students/${editItem.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: editItem.name,
+            phoneNumber: editItem.phone || "",
+            batchId: editItem.batch,
+            courseDuration: Number(editItem.courseDuration),
+            status: editItem.status || "Active",
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || "Failed to update student");
+      }
+
+      await fetchStudents();
+
+      setEditItem(null);
+      toast.success("Student updated successfully");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
-  const confirmDelete = () => {
+  // DELETE student from PostgreSQL
+  const confirmDelete = async () => {
     if (!deleteItem) return;
 
-    setStudents(students.filter((s) => s.id !== deleteItem.id));
-    setDeleteItem(null);
-    toast.success("Student deleted successfully");
+    setIsDeleting(true);
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/students/${deleteItem.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || "Failed to delete student");
+      }
+
+      await fetchStudents();
+
+      setDeleteItem(null);
+      toast.success("Student deleted successfully");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const inputClass =
@@ -570,7 +628,7 @@ function StudentsContent() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-95 text-sm font-medium shadow transition-all flex items-center gap-2"
+                  className="px-5 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-95 text-sm font-medium shadow transition-all flex items-center gap-2 disabled:opacity-70"
                 >
                   {isSubmitting ? (
                     <>
@@ -592,7 +650,7 @@ function StudentsContent() {
         <div
           className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={(e) =>
-            e.target === e.currentTarget && setDeleteItem(null)
+            e.target === e.currentTarget && !isDeleting && setDeleteItem(null)
           }
         >
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg animate-in zoom-in-95 duration-200">
@@ -601,22 +659,31 @@ function StudentsContent() {
             </h3>
             <p className="text-gray-500 text-sm font-medium mb-6 leading-relaxed font-sans">
               Are you sure you want to remove this student account? This will
-              permanently delete their access and data.
+              permanently delete their access and data from the database.
             </p>
 
             <div className="flex justify-end gap-3">
               <button
+                disabled={isDeleting}
                 onClick={() => setDeleteItem(null)}
-                className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-95 font-sans"
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-95 font-sans disabled:opacity-70"
               >
                 Cancel
               </button>
 
               <button
+                disabled={isDeleting}
                 onClick={confirmDelete}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg shadow-red-100 transition-all active:scale-95 font-sans"
+                className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg shadow-red-100 transition-all active:scale-95 font-sans flex items-center gap-2 disabled:opacity-70"
               >
-                Remove Account
+                {isDeleting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Removing...
+                  </>
+                ) : (
+                  "Remove Account"
+                )}
               </button>
             </div>
           </div>
@@ -627,7 +694,9 @@ function StudentsContent() {
       {editItem && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300"
-          onClick={(e) => e.target === e.currentTarget && setEditItem(null)}
+          onClick={(e) =>
+            e.target === e.currentTarget && !isUpdating && setEditItem(null)
+          }
         >
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl animate-in zoom-in-95 duration-300 overflow-hidden font-sans">
             <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
@@ -646,8 +715,9 @@ function StudentsContent() {
               </div>
 
               <button
+                disabled={isUpdating}
                 onClick={() => setEditItem(null)}
-                className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-200/50 rounded-full transition-all active:scale-90"
+                className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-200/50 rounded-full transition-all active:scale-90 disabled:opacity-70"
               >
                 <X size={24} />
               </button>
@@ -668,6 +738,7 @@ function StudentsContent() {
                     }
                     className={inputClass}
                     required
+                    disabled={isUpdating}
                   />
                 </div>
 
@@ -696,6 +767,7 @@ function StudentsContent() {
                       setEditItem({ ...editItem, phone: e.target.value })
                     }
                     className={inputClass}
+                    disabled={isUpdating}
                   />
                 </div>
 
@@ -710,6 +782,7 @@ function StudentsContent() {
                       setEditItem({ ...editItem, batch: e.target.value })
                     }
                     className={inputClass}
+                    disabled={isUpdating}
                   >
                     <option value="">Select a batch</option>
 
@@ -735,6 +808,7 @@ function StudentsContent() {
                       })
                     }
                     className={inputClass}
+                    disabled={isUpdating}
                   >
                     <option value={1}>1 Year</option>
                     <option value={2}>2 Years</option>
@@ -754,6 +828,7 @@ function StudentsContent() {
                       setEditItem({ ...editItem, status: e.target.value })
                     }
                     className={inputClass}
+                    disabled={isUpdating}
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -764,17 +839,26 @@ function StudentsContent() {
               <div className="mt-8 flex justify-end gap-3 pt-6 border-t border-gray-100">
                 <button
                   type="button"
+                  disabled={isUpdating}
                   onClick={() => setEditItem(null)}
-                  className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:scale-95 text-sm font-medium transition-all"
+                  className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:scale-95 text-sm font-medium transition-all disabled:opacity-70"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="px-5 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-95 text-sm font-medium shadow transition-all font-sans"
+                  disabled={isUpdating}
+                  className="px-5 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-95 text-sm font-medium shadow transition-all font-sans flex items-center gap-2 disabled:opacity-70"
                 >
-                  Save Changes
+                  {isUpdating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
                 </button>
               </div>
             </form>
@@ -962,7 +1046,13 @@ function StudentsContent() {
 
 export default function StudentsPage() {
   return (
-    <Suspense fallback={<div className="flex p-8 justify-center items-center text-gray-500">Loading student directory...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex p-8 justify-center items-center text-gray-500">
+          Loading student directory...
+        </div>
+      }
+    >
       <StudentsContent />
     </Suspense>
   );
