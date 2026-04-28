@@ -21,7 +21,7 @@ const columns: Column[] = [
 function PaymentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { payments, setPayments } = useData();
+  const { payments, setPayments, batches, refreshBatches } = useData();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [batchFilter, setBatchFilter] = useState('');
@@ -36,7 +36,7 @@ function PaymentsContent() {
   const [newPayment, setNewPayment] = useState<any>({ 
     studentName: '', 
     email: '', 
-    batch: 'Batch A - React', 
+    batch: batches[0]?.name || '', 
     amount: '', 
     year: currentYear,
     paidDate: today, 
@@ -46,6 +46,18 @@ function PaymentsContent() {
   // Modal State
   const [editItem, setEditItem] = useState<any>(null);
   const [deleteItem, setDeleteItem] = useState<any>(null);
+
+  useEffect(() => {
+    if (refreshBatches) {
+      refreshBatches();
+    }
+  }, [refreshBatches]);
+
+  useEffect(() => {
+    if (batches.length > 0 && !batches.some(b => b.name === newPayment.batch)) {
+      setNewPayment((prev: any) => ({ ...prev, batch: batches[0].name }));
+    }
+  }, [batches, newPayment.batch]);
 
   useEffect(() => {
     if (searchParams?.get('action') === 'add') {
@@ -118,7 +130,7 @@ function PaymentsContent() {
     toast.success("Payment recorded successfully");
 
     setShowAddForm(false);
-    setNewPayment({ studentName: '', email: '', batch: 'Batch A - React', amount: '', year: currentYear, paidDate: today, status: 'Paid' });
+    setNewPayment({ studentName: '', email: '', batch: batches[0]?.name || '', amount: '', year: currentYear, paidDate: today, status: 'Paid' });
     router.replace('/admin/dashboard/payments');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -249,9 +261,9 @@ function PaymentsContent() {
                     Select Batch *
                   </label>
                   <select value={newPayment.batch} onChange={e => setNewPayment({...newPayment, batch: e.target.value})} className={inputClass} required>
-                    <option value="Batch A - React">Batch A - React</option>
-                    <option value="Batch B - Node.js">Batch B - Node.js</option>
-                    <option value="Batch C - UI/UX">Batch C - UI/UX</option>
+                    {batches.map(b => (
+                      <option key={b.id} value={b.name}>{b.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -357,9 +369,9 @@ function PaymentsContent() {
                     Batch
                   </label>
                   <select value={editItem.batch} onChange={e => setEditItem({...editItem, batch: e.target.value})} className={inputClass}>
-                    <option>Batch A - React</option>
-                    <option>Batch B - Node.js</option>
-                    <option>Batch C - UI/UX</option>
+                    {batches.map(b => (
+                      <option key={b.id} value={b.name}>{b.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-1">

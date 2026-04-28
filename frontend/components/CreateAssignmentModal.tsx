@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, File as FileIcon, Trash2, FileText, BookOpen, Clock, Layout, Loader2 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import toast from 'react-hot-toast';
@@ -10,7 +10,7 @@ interface CreateAssignmentModalProps {
 }
 
 export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
-  const { batches, refreshAssignments } = useData();
+  const { batches, refreshAssignments, refreshBatches } = useData();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -23,6 +23,18 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (refreshBatches) {
+      refreshBatches();
+    }
+  }, [refreshBatches]);
+
+  useEffect(() => {
+    if (batches.length > 0 && !batches.some(b => b.name === formData.batch)) {
+      setFormData(prev => ({ ...prev, batch: batches[0].name }));
+    }
+  }, [batches, formData.batch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

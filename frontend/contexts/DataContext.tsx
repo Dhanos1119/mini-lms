@@ -90,6 +90,7 @@ interface DataContextType {
   setResetTokens: React.Dispatch<React.SetStateAction<ResetToken[]>>;
   showAssignmentModal: boolean;
   setShowAssignmentModal: React.Dispatch<React.SetStateAction<boolean>>;
+  refreshBatches: () => Promise<void>;
 }
 
 // --- Initial Mock Data (used as fallback until API responds) ---
@@ -185,10 +186,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ─── Shared refreshBatches ──────────────────────────────────────────
+  const refreshBatches = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/batches`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!res.ok) return;
+      const data = await res.json();
+      setBatches(data);
+    } catch (err) {
+      console.error('refreshBatches failed:', err);
+    }
+  }, []);
+
   return (
     <DataContext.Provider value={{
       students, setStudents,
-      batches, setBatches,
+      batches, setBatches, refreshBatches,
       assignments, setAssignments, refreshAssignments,
       announcements, setAnnouncements, refreshAnnouncements,
       payments, setPayments,
