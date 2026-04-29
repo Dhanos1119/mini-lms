@@ -24,6 +24,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/assignments', require('./routes/assignments'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/batches', require('./routes/batchRoutes'));
+app.use('/api/upload', require('./routes/upload'));
 
 
 const PORT = process.env.PORT || 5000;

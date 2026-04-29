@@ -75,10 +75,36 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
     fetchBatchesFromDb();
   }, []);
 
+  const uploadFile = async (fileToUpload: File): Promise<string> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("file", fileToUpload);
+
+    const res = await fetch(`${API_URL}/upload`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || "File upload failed");
+    }
+
+    return data.fileUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title || !formData.batch || !formData.description || !formData.dueDate) {
+    if (
+      !formData.title ||
+      !formData.batch ||
+      !formData.description ||
+      !formData.dueDate
+    ) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -91,8 +117,26 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
     setIsSubmitting(true);
 
     try {
+      let finalFileUrl = null;
+
+      // 1. Upload file to Cloudinary first if exists
+      if (file) {
+        toast.loading("Uploading file to Cloudinary...", { id: "upload" });
+        try {
+          finalFileUrl = await uploadFile(file);
+          toast.success("File uploaded successfully", { id: "upload" });
+        } catch (uploadErr: any) {
+          toast.error("File upload failed: " + uploadErr.message, {
+            id: "upload",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const token = getToken();
 
+      // 2. Create assignment with the Cloudinary URL
       const res = await fetch(`${API_URL}/assignments`, {
         method: "POST",
         headers: {
@@ -104,14 +148,16 @@ export function CreateAssignmentModal({ onClose }: CreateAssignmentModalProps) {
           description: formData.description,
           batchId: formData.batch,
           dueDate: formData.dueDate,
-          fileUrl: file ? file.name : null,
+          fileUrl: finalFileUrl,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || data.message || "Failed to create assignment");
+        throw new Error(
+          data.error || data.message || "Failed to create assignment"
+        );
       }
 
       console.log("✅ Assignment created in DB:", data.assignment);
