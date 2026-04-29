@@ -9,7 +9,9 @@ export interface Student {
   name: string;
   email: string;
   batch: string;
+  batchId?: string;
   phone: string;
+  phoneNumber?: string;
   totalPaid: number;
   status: string;
   courseDuration: number;
